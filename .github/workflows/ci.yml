@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Windows / Python ${{ matrix.python-version }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.13']
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Compile source
+        run: python -m compileall -q src tests
+
+      - name: Build portable executable
+        shell: pwsh
+        run: .\build.ps1
+
+      - name: Verify packaged executable
+        shell: pwsh
+        run: |
+          $executable = "dist\CodexUsageTaskbar\CodexUsageTaskbar.exe"
+          if (-not (Test-Path -LiteralPath $executable)) {
+            throw "Expected packaged executable was not created: $executable"
+          }
+
+      - name: Upload packaged build
+        uses: actions/upload-artifact@v4
+        with:
+          name: CodexUsageTaskbar-py${{ matrix.python-version }}
+          path: dist/CodexUsageTaskbar
+          if-no-files-found: error
