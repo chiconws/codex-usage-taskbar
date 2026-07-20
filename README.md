@@ -15,6 +15,22 @@ In Settings, enable **Show usage instead of remaining** to switch from the defau
 
 The widget is a non-activating top-level window owned by the Windows taskbar. This is the same docking pattern used by taskbar-native utilities: Windows keeps the owned widget above the taskbar's modern XAML surface, while the app still uses a small normal Qt window for reliable painting and mouse input. It reattaches when the taskbar window is recreated, such as after an Explorer restart.
 
+## Screenshots
+
+These examples use synthetic account data and show the compact taskbar display, Details window, and Settings window.
+
+### Compact taskbar display
+
+![Compact taskbar widget showing five-hour and weekly usage](assets/screenshots/taskbar-widget.png)
+
+### Details window
+
+![Codex Usage Taskbar Details window](assets/screenshots/details-window.png)
+
+### Settings window
+
+![Codex Usage Taskbar Settings window](assets/screenshots/settings-window.png)
+
 ## Development
 
 ```powershell
