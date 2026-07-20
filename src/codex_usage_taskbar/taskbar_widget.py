@@ -28,8 +28,10 @@ from .models import RateLimitSnapshot, RateLimitWindow
 from .windows import (
     move_taskbar_child_to_screen_x,
     overlay_window_rect,
+    primary_taskbar_handle,
     position_overlay,
     prepare_overlay,
+    taskbar_overlay_should_be_visible,
 )
 
 
@@ -399,6 +401,9 @@ class TaskbarOverlay(QWidget):
         self._position_timer = QTimer(self)
         self._position_timer.timeout.connect(self.relocate)
         self._position_timer.start(2000)
+        self._visibility_timer = QTimer(self)
+        self._visibility_timer.timeout.connect(self._update_visibility)
+        self._visibility_timer.start(250)
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
@@ -411,6 +416,18 @@ class TaskbarOverlay(QWidget):
     def relocate(self) -> None:
         if self._drag_anchor_x is None:
             position_overlay(self, self.config.taskbar_position_ratio)
+
+    def _update_visibility(self) -> None:
+        taskbar_hwnd = primary_taskbar_handle()
+        if taskbar_hwnd is None:
+            return
+        should_be_visible = taskbar_overlay_should_be_visible(taskbar_hwnd, int(self.winId()))
+        if should_be_visible == self.isVisible():
+            return
+        if should_be_visible:
+            self.show()
+        else:
+            self.hide()
 
     def _begin_drag(self, global_position: QPoint) -> None:
         rect = overlay_window_rect(self)
@@ -537,6 +554,7 @@ class TaskbarOverlay(QWidget):
 
     def closeEvent(self, event) -> None:
         self._position_timer.stop()
+        self._visibility_timer.stop()
         super().closeEvent(event)
         app = QApplication.instance()
         if app is not None:
