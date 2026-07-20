@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import os
+
 from PySide6.QtCore import QPoint, QSize
 from PySide6.QtWidgets import QApplication, QWidget
 
+import win32api
 import win32con
 import win32gui
+import win32process
 
 
 def primary_taskbar_rect() -> tuple[int, int, int, int] | None:
@@ -17,6 +21,59 @@ def primary_taskbar_rect() -> tuple[int, int, int, int] | None:
 def primary_taskbar_handle() -> int | None:
     hwnd = win32gui.FindWindow("Shell_TrayWnd", None)
     return int(hwnd) if hwnd else None
+
+
+def is_taskbar_obstructed(taskbar_hwnd: int | None, widget_hwnd: int = 0) -> bool:
+    """Return whether a true fullscreen foreground window covers this taskbar's monitor.
+
+    A maximized or snapped application is not considered an obstruction. This matches the
+    shell behavior expected of a taskbar-docked widget: it stays visible during ordinary
+    desktop use and hides when a fullscreen video or game takes over the monitor.
+    """
+    try:
+        if not taskbar_hwnd or not win32gui.IsWindow(taskbar_hwnd):
+            return False
+        foreground_hwnd = win32gui.GetForegroundWindow()
+        if not foreground_hwnd or not win32gui.IsWindow(foreground_hwnd):
+            return False
+        if foreground_hwnd == widget_hwnd:
+            return False
+
+        _thread_id, foreground_pid = win32process.GetWindowThreadProcessId(foreground_hwnd)
+        if foreground_pid == os.getpid():
+            return False
+
+        class_name = win32gui.GetClassName(foreground_hwnd)
+        if class_name in {"Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd"}:
+            return False
+
+        foreground_monitor = win32api.MonitorFromWindow(
+            foreground_hwnd, win32con.MONITOR_DEFAULTTONEAREST
+        )
+        taskbar_monitor = win32api.MonitorFromWindow(
+            taskbar_hwnd, win32con.MONITOR_DEFAULTTONEAREST
+        )
+        if foreground_monitor != taskbar_monitor:
+            return False
+
+        monitor_rect = win32api.GetMonitorInfo(foreground_monitor).get("Monitor")
+        if not monitor_rect:
+            return False
+        return tuple(win32gui.GetWindowRect(foreground_hwnd)) == tuple(monitor_rect)
+    except Exception:
+        return False
+
+
+def taskbar_overlay_should_be_visible(taskbar_hwnd: int | None, widget_hwnd: int = 0) -> bool:
+    """Return whether the overlay should be shown for the current shell state."""
+    if not taskbar_hwnd:
+        return True
+    try:
+        if not win32gui.IsWindowVisible(taskbar_hwnd):
+            return False
+    except win32gui.error:
+        return True
+    return not is_taskbar_obstructed(taskbar_hwnd, widget_hwnd)
 
 
 def prepare_overlay(widget: QWidget) -> None:

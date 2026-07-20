@@ -62,3 +62,68 @@ def test_attach_overlay_makes_taskbar_the_window_owner(monkeypatch):
     assert captured["topmost"][1] == win32con.HWND_TOPMOST
     assert captured[win32con.GWL_EXSTYLE] & win32con.WS_EX_TOOLWINDOW
     assert captured[win32con.GWL_EXSTYLE] & win32con.WS_EX_NOACTIVATE
+
+
+def test_fullscreen_foreground_window_obstructs_taskbar_widget(monkeypatch):
+    foreground_hwnd = 700
+    taskbar_hwnd = 500
+    widget_hwnd = 123
+    monitor_rect = (0, 0, 1920, 1080)
+
+    monkeypatch.setattr(windows.win32gui, "GetForegroundWindow", lambda: foreground_hwnd)
+    monkeypatch.setattr(windows.win32gui, "IsWindow", lambda _hwnd: True)
+    monkeypatch.setattr(windows.win32gui, "GetClassName", lambda _hwnd: "Chrome_WidgetWin_1")
+    monkeypatch.setattr(
+        windows.win32process,
+        "GetWindowThreadProcessId",
+        lambda _hwnd: (1, 9999),
+    )
+    monkeypatch.setattr(
+        windows.win32api,
+        "MonitorFromWindow",
+        lambda _hwnd, _flag: 42,
+    )
+    monkeypatch.setattr(
+        windows.win32api,
+        "GetMonitorInfo",
+        lambda _monitor: {"Monitor": monitor_rect},
+    )
+    monkeypatch.setattr(
+        windows.win32gui,
+        "GetWindowRect",
+        lambda _hwnd: monitor_rect,
+    )
+
+    assert windows.is_taskbar_obstructed(taskbar_hwnd, widget_hwnd) is True
+
+
+def test_maximized_foreground_window_does_not_obstruct_taskbar_widget(monkeypatch):
+    monitor_rect = (0, 0, 1920, 1080)
+
+    monkeypatch.setattr(windows.win32gui, "GetForegroundWindow", lambda: 700)
+    monkeypatch.setattr(windows.win32gui, "IsWindow", lambda _hwnd: True)
+    monkeypatch.setattr(windows.win32gui, "GetClassName", lambda _hwnd: "Chrome_WidgetWin_1")
+    monkeypatch.setattr(
+        windows.win32process,
+        "GetWindowThreadProcessId",
+        lambda _hwnd: (1, 9999),
+    )
+    monkeypatch.setattr(windows.win32api, "MonitorFromWindow", lambda _hwnd, _flag: 42)
+    monkeypatch.setattr(
+        windows.win32api,
+        "GetMonitorInfo",
+        lambda _monitor: {"Monitor": monitor_rect},
+    )
+    monkeypatch.setattr(windows.win32gui, "GetWindowRect", lambda _hwnd: (0, 0, 1920, 1040))
+
+    assert windows.is_taskbar_obstructed(500, 123) is False
+
+
+def test_taskbar_overlay_visibility_follows_shell_visibility_and_obstruction(monkeypatch):
+    monkeypatch.setattr(windows.win32gui, "IsWindowVisible", lambda _hwnd: True)
+    monkeypatch.setattr(windows, "is_taskbar_obstructed", lambda _taskbar, _widget: True)
+
+    assert windows.taskbar_overlay_should_be_visible(500, 123) is False
+
+    monkeypatch.setattr(windows, "is_taskbar_obstructed", lambda _taskbar, _widget: False)
+    assert windows.taskbar_overlay_should_be_visible(500, 123) is True

@@ -15,6 +15,8 @@ In Settings, enable **Show usage instead of remaining** to switch from the defau
 
 The widget is a non-activating top-level window owned by the Windows taskbar. This is the same docking pattern used by taskbar-native utilities: Windows keeps the owned widget above the taskbar's modern XAML surface, while the app still uses a small normal Qt window for reliable painting and mouse input. It reattaches when the taskbar window is recreated, such as after an Explorer restart.
 
+Like NetSpeedTray, it hides itself while a foreground window truly covers the whole monitor—for example, YouTube or a game in fullscreen—and returns when the taskbar is usable again. Maximized and snapped windows do not hide it.
+
 ## Screenshots
 
 These examples use synthetic account data and show the compact taskbar display, Details window, and Settings window.
